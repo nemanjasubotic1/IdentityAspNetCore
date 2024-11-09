@@ -19,6 +19,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>().AddEntityFramework
 builder.Services.Configure<IdentityOptions>(options =>
 {
     options.Password.RequireNonAlphanumeric = false;
+    options.Password.RequireDigit = false;
 
     options.Lockout.MaxFailedAccessAttempts = 3;
     options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(10);
