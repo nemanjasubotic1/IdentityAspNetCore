@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ActionConstraints;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Templates.BlazorIdentity.Pages;
 using System.Text.Encodings.Web;
 
 namespace IdentityAspNetCore.Controllers;
@@ -239,21 +240,21 @@ public class AccountController : Controller
         var user = await _signInManager.GetTwoFactorAuthenticationUserAsync();
 
         if (!ModelState.IsValid) return View(model);
-        
-            var result = await _signInManager.TwoFactorAuthenticatorSignInAsync(model.Code, model.RememberMe, rememberClient: false);
 
-            if (result.Succeeded)
-            {
-                return LocalRedirect(model.ReturnUrl);
-            }
+        var result = await _signInManager.TwoFactorAuthenticatorSignInAsync(model.Code, model.RememberMe, rememberClient: false);
 
-            if (result.IsLockedOut)
-            {
-                return View("Lockout");
-            }
-      
-            ModelState.AddModelError("", "Invalid login attempt");
-            return View(model);
+        if (result.Succeeded)
+        {
+            return LocalRedirect(model.ReturnUrl);
+        }
+
+        if (result.IsLockedOut)
+        {
+            return View("Lockout");
+        }
+
+        ModelState.AddModelError("", "Invalid login attempt");
+        return View(model);
     }
 
 
@@ -262,6 +263,85 @@ public class AccountController : Controller
     {
         return View();
     }
+
+    #endregion
+
+    #region ForgotPasswordConfirmation
+
+    [HttpGet]
+    public IActionResult ForgotPassword()
+    {
+        return View();
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordVM model)
+    {
+        var user = await _userManager.FindByEmailAsync(model.Email);
+
+        if (user == null)
+        {
+            return RedirectToAction("ForgotPasswordConfirmation");
+        }
+
+        var code = await _userManager.GeneratePasswordResetTokenAsync(user);
+
+        var callbackUrl = Url.Action("ResetPassword", new
+        {
+            code,
+            model.Email
+        });
+
+        ViewData["callbackUrl"] = callbackUrl; // fake email confirmation link
+
+        return View();
+    }
+
+    [HttpGet]
+    public IActionResult ResetPassword(string? code = null, string? email = null)
+    {
+        return code == null ? View("Error") : View();
+    }
+
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ResetPassword(ResetPasswordVM model)
+    {
+        if (ModelState.IsValid)
+        {
+            var user = await _userManager.FindByEmailAsync(model.Email);
+            if (user == null)
+            {
+                return View("Error");
+            }
+
+            var result = await _userManager.ResetPasswordAsync(user, model.Code, model.Password);
+
+            if (result.Succeeded)
+            {
+                return RedirectToAction(nameof(ResetPasswordConfirmation));
+            }
+            AddErrors(result);
+        }
+
+        ModelState.AddModelError("", "Something is not right, try again");
+
+        return View(model);
+    }
+
+    [HttpGet]
+    public IActionResult ResetPasswordConfirmation(string? code = null)
+    {
+        return View();
+    }
+
+    [HttpGet]
+    public IActionResult ForgotPasswordConfirmation()
+    {
+        return View();
+    }
+
 
     #endregion
 
