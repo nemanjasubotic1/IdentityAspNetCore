@@ -3,10 +3,7 @@ using IdentityAspNetCore.Models.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.ActionConstraints;
-using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Templates.BlazorIdentity.Pages;
 using System.Text.Encodings.Web;
 
 namespace IdentityAspNetCore.Controllers;
@@ -85,13 +82,23 @@ public class AccountController : Controller
                     await _userManager.AddToRoleAsync(user, SD.Role_Guest);
                 }
 
-                await _signInManager.SignInAsync(user, isPersistent: false);
+                var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
 
-                return LocalRedirect(returnUrl);
+                var callbackUrl = Url.Action("EmailConfirmation", new
+                {
+                    code,
+                    model.Email,
+                });
+
+                ViewData["callbackUrl"] = callbackUrl;
+
+                return View(model);
             }
 
             AddErrors(result);
         }
+
+        TempData["error"] = "Something is wrong";
 
         var roleList = _roleManager.Roles.ToList();
 
@@ -125,21 +132,26 @@ public class AccountController : Controller
 
         if (ModelState.IsValid)
         {
-            var result = await _signInManager.PasswordSignInAsync(model.Email, model.Password, isPersistent: model.RememberMe, lockoutOnFailure: true);
+            var user = await _userManager.FindByEmailAsync(model.Email);
 
-            if (result.Succeeded)
+            if (user == null)
             {
-                return LocalRedirect(returnUrl);
+                TempData["error"] = "Username name dont exists";
+
+                return RedirectToAction(nameof(Login));
             }
-
-            if (result.RequiresTwoFactor)
+            else
             {
-                return RedirectToAction("VerifyAuthenticatorCode", new { returnUrl = returnUrl });
-            }
+                var isEmailConfirmed = await _userManager.IsEmailConfirmedAsync(user);
 
-            if (result.IsLockedOut)
-            {
-                return View("Lockout");
+                if (isEmailConfirmed)
+                {
+                    return await SingInUserAsync(model, returnUrl);
+                }
+                else
+                {
+                    return RedirectToAction(nameof(ConfirmEmail), new { email = model.Email });
+                }
             }
         }
         else
@@ -147,8 +159,6 @@ public class AccountController : Controller
             ModelState.AddModelError("", "Invalid login attempt");
             return View(model);
         }
-
-        return View(model);
     }
 
 
@@ -159,6 +169,19 @@ public class AccountController : Controller
         await _signInManager.SignOutAsync();
 
         return RedirectToAction("Index", "Home");
+    }
+
+
+    [HttpGet]
+    public IActionResult Error()
+    {
+        return View();
+    }
+
+    [HttpGet]
+    public IActionResult Lockout()
+    {
+        return View();
     }
 
     #region TwoFactorAuthentication
@@ -342,14 +365,60 @@ public class AccountController : Controller
         return View();
     }
 
-
     #endregion
 
+    #region ConfirmEmail
+
     [HttpGet]
-    public IActionResult Error()
+    [AllowAnonymous]
+    public async Task<IActionResult> EmailConfirmation(string? code = null, string? email = null)
     {
+
+        ViewData["email"] = email;
+
+        var user = await _userManager.FindByEmailAsync(email);
+
+        if (user == null) return View("Error");
+
+        var result = await _userManager.ConfirmEmailAsync(user, code);
+
+        if (result.Succeeded)
+        {
+            await _signInManager.SignInAsync(user, isPersistent: false);
+
+            return View();
+        }
+
+        AddErrors(result);
+
         return View();
     }
+
+    [HttpGet]
+    [AllowAnonymous]
+    public async Task<IActionResult> ConfirmEmail(string? email = null)
+    {
+        if (email == null) return View("Error");
+
+        var user = await _userManager.FindByEmailAsync(email);
+
+        if (user == null) return View("Error");
+
+        var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+
+        var callbackUrl = Url.Action("EmailConfirmation", new
+        {
+            code,
+            email,
+        });
+
+        ViewData["callbackUrl"] = callbackUrl;
+
+        return View();
+    }
+
+
+    #endregion
 
     #region HelperMethods
 
@@ -360,6 +429,32 @@ public class AccountController : Controller
             ModelState.AddModelError("", error.Description);
         }
     }
+
+    private async Task<IActionResult> SingInUserAsync(LoginVM model, string? returnUrl = null)
+    {
+        var result = await _signInManager.PasswordSignInAsync(model.Email, model.Password, isPersistent: model.RememberMe, lockoutOnFailure: true);
+        returnUrl ??= Url.Content("~/");
+
+        if (result.Succeeded)
+        {
+            return LocalRedirect(returnUrl);
+        }
+
+        if (result.RequiresTwoFactor)
+        {
+            return RedirectToAction("VerifyAuthenticatorCode", new { returnUrl });
+        }
+
+        if (result.IsLockedOut)
+        {
+            return View("Lockout");
+        }
+
+        TempData["error"] = "Invalid login, check your credentials";
+
+        return View(model);
+    }
+
 
     #endregion
 }

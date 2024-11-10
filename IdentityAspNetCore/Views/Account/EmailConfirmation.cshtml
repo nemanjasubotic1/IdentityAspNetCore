@@ -1,0 +1,32 @@
+﻿@using Microsoft.AspNetCore.Identity
+
+@inject UserManager<ApplicationUser> UserManager
+
+
+<h1>Email confirmation</h1>
+
+
+@if (ViewData["email"] is not null)
+{
+    var email = ViewData["email"].ToString();
+
+    var user = await UserManager.FindByEmailAsync(email);
+
+    var result = await UserManager.IsEmailConfirmedAsync(user);
+
+    if (result)
+    {
+        <h2 class="text-secondary">Your email has been confirmed</h2>
+        <a asp-controller="Account" asp-action="Login">
+            Click here to login
+        </a>
+    }
+    else
+    {
+        <h2 class="text-warning">Your email has been confirmed</h2>
+        <a asp-controller="Account" asp-action="ConfirmEmail" asp-route-email="email">
+            Click here to confirm
+        </a>
+    }
+}
+

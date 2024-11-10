@@ -44,6 +44,17 @@
                             <button type="submit" class="w-100 btn btn-lg btn-outline-success">Register</button>
                         </div>
                     </form>
+                    <br />
+                    <div class="row">
+                        <p class="text-secondary text-center">
+                            @if (ViewData["callbackUrl"] != null)
+                            {
+                                <a href="@ViewData["callbackUrl"]" class="text-secondary">
+                                    Click link to confirm password / fake email link
+                                </a>
+                            }
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>

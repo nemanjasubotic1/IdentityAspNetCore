@@ -1,0 +1,26 @@
+﻿@if(TempData["error"] is not null)
+{
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+        Swal.fire({
+            icon: "error",
+            title: "Oops...",
+            text: "@TempData["error"]",
+             @* footer: '<a href="#">Why do I have this issue?</a>' *@
+        });
+    </script>
+}
+@if (TempData["success"] is not null)
+{
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+        Swal.fire({
+            icon: "success",
+            title: "Well done",
+            text: "@TempData["success"]",
+        @* footer: '<a href="#">Why do I have this issue?</a>' *@
+                });
+    </script>
+}

@@ -1,0 +1,24 @@
+﻿
+
+<div class="row col-md-10 offset-md-1">
+    <h1 class="text-primary text-center pt-2">Email confirmation</h1>
+    <div class="row">
+        <p class="text-secondary text-center">
+            @if (ViewData["callbackUrl"] != null)
+            {
+                <a href="@ViewData["callbackUrl"]" class="text-secondary">
+                    Click link to confirm email address / fake email link
+                </a>
+            }
+            else
+            {
+                <h3 class="text-warning">Try againg</h3>
+            }
+        </p>
+    </div>
+</div>
+
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
