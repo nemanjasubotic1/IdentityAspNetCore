@@ -8,6 +8,7 @@ using System.Text.Encodings.Web;
 
 namespace IdentityAspNetCore.Controllers;
 
+[Authorize]
 public class AccountController : Controller
 {
     private readonly UserManager<ApplicationUser> _userManager;
@@ -26,7 +27,10 @@ public class AccountController : Controller
         _urlEncoder = urlEncoder;
     }
 
+    #region RegisterLoginLogout
+
     [HttpGet]
+    [AllowAnonymous]
     public async Task<IActionResult> Register(string? returnUrl = null)
     {
         ViewData["ReturnUrl"] = returnUrl;
@@ -54,6 +58,7 @@ public class AccountController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [AllowAnonymous]
     public async Task<IActionResult> Register(RegisterVM model, string? returnUrl = null)
     {
         ViewData["ReturnUrl"] = returnUrl;
@@ -66,7 +71,8 @@ public class AccountController : Controller
                 Name = model.Name,
                 UserName = model.Email,
                 Email = model.Email,
-                NormalizedEmail = model.Email.ToUpper()
+                NormalizedEmail = model.Email.ToUpper(),
+                DateCreated = DateTime.Now,
             };
 
             var result = await _userManager.CreateAsync(user, model.Password);
@@ -115,16 +121,17 @@ public class AccountController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> Login(string? returnUrl = null)
+    [AllowAnonymous]
+    public IActionResult Login(string? returnUrl = null)
     {
         ViewData["ReturnUrl"] = returnUrl;
 
         return View();
-
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [AllowAnonymous]
     public async Task<IActionResult> Login(LoginVM model, string? returnUrl = null)
     {
         ViewData["ReturnUrl"] = returnUrl;
@@ -156,11 +163,9 @@ public class AccountController : Controller
         }
         else
         {
-            ModelState.AddModelError("", "Invalid login attempt");
             return View(model);
         }
     }
-
 
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -171,42 +176,58 @@ public class AccountController : Controller
         return RedirectToAction("Index", "Home");
     }
 
-
     [HttpGet]
+    [AllowAnonymous]
     public IActionResult Error()
     {
         return View();
     }
 
     [HttpGet]
+    [AllowAnonymous]
     public IActionResult Lockout()
     {
         return View();
     }
 
+    [HttpGet]
+    [AllowAnonymous]
+    public IActionResult AccessDenied()
+    {
+        return View();
+    }
+
+    #endregion
+
     #region TwoFactorAuthentication
 
     [HttpGet]
+    // used in View Index, Home
     public async Task<IActionResult> EnableAuthenticator()
     {
-        // standard in defining qr code used by TOTP-compatible apps (google authenticator, microsoft authenticator...)
         string AuthenticatedUriFormat = "otpauth://totp/{0}:{1}?secret={2}&issuer={0}&digits=6";
 
         var user = await _userManager.GetUserAsync(User);
 
-        await _userManager.ResetAuthenticatorKeyAsync(user);
-
-        var token = await _userManager.GetAuthenticatorKeyAsync(user);
-
-        var authUri = string.Format(AuthenticatedUriFormat, _urlEncoder.Encode("IdentityManager"), _urlEncoder.Encode(user.Email), token);
-
-        var model = new TwoFactorAuthenticationVM()
+        if (user != null)
         {
-            Token = token,
-            QrCodeUrl = authUri
-        };
+            await _userManager.ResetAuthenticatorKeyAsync(user);
 
-        return View(model);
+            var token = await _userManager.GetAuthenticatorKeyAsync(user);
+
+            var authUri = string.Format(AuthenticatedUriFormat, _urlEncoder.Encode("IdentityManager"), _urlEncoder.Encode(user.Email), token);
+
+            var model = new TwoFactorAuthenticationVM()
+            {
+                Token = token,
+                QrCodeUrl = authUri
+            };
+
+            return View(model);
+        }
+
+        return View("Error");
+
     }
 
     [HttpPost]
@@ -255,6 +276,19 @@ public class AccountController : Controller
         return View(verifyAuthenticatorVM);
     }
 
+    [HttpGet]
+    public async Task<IActionResult> RemoveAuthenticator()
+    {
+        var user = await _userManager.GetUserAsync(User);
+
+        await _userManager.ResetAuthenticatorKeyAsync(user);
+
+        await _userManager.SetTwoFactorEnabledAsync(user, false);
+
+        return RedirectToAction(nameof(Index), "Home");
+    }
+
+
     [HttpPost]
     [AllowAnonymous]
     [ValidateAntiForgeryToken]
@@ -262,24 +296,24 @@ public class AccountController : Controller
     {
         var user = await _signInManager.GetTwoFactorAuthenticationUserAsync();
 
-        if (!ModelState.IsValid) return View(model);
-
-        var result = await _signInManager.TwoFactorAuthenticatorSignInAsync(model.Code, model.RememberMe, rememberClient: false);
-
-        if (result.Succeeded)
+        if (ModelState.IsValid)
         {
-            return LocalRedirect(model.ReturnUrl);
-        }
+            var result = await _signInManager.TwoFactorAuthenticatorSignInAsync(model.Code, model.RememberMe, rememberClient: false);
 
-        if (result.IsLockedOut)
-        {
-            return View("Lockout");
+            if (result.Succeeded)
+            {
+                return LocalRedirect(model.ReturnUrl);
+            }
+
+            if (result.IsLockedOut)
+            {
+                return View("Lockout");
+            }
         }
 
         ModelState.AddModelError("", "Invalid login attempt");
         return View(model);
     }
-
 
     [HttpGet]
     public IActionResult AuthenticatorConfirmation()
@@ -292,12 +326,14 @@ public class AccountController : Controller
     #region ForgotPasswordConfirmation
 
     [HttpGet]
+    [AllowAnonymous]
     public IActionResult ForgotPassword()
     {
         return View();
     }
 
     [HttpPost]
+    [AllowAnonymous]
     public async Task<IActionResult> ForgotPassword(ForgotPasswordVM model)
     {
         var user = await _userManager.FindByEmailAsync(model.Email);
@@ -321,6 +357,7 @@ public class AccountController : Controller
     }
 
     [HttpGet]
+    [AllowAnonymous]
     public IActionResult ResetPassword(string? code = null, string? email = null)
     {
         return code == null ? View("Error") : View();
@@ -329,6 +366,7 @@ public class AccountController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [AllowAnonymous]
     public async Task<IActionResult> ResetPassword(ResetPasswordVM model)
     {
         if (ModelState.IsValid)
@@ -354,12 +392,14 @@ public class AccountController : Controller
     }
 
     [HttpGet]
+    [AllowAnonymous]
     public IActionResult ResetPasswordConfirmation(string? code = null)
     {
         return View();
     }
 
     [HttpGet]
+    [AllowAnonymous]
     public IActionResult ForgotPasswordConfirmation()
     {
         return View();
@@ -430,6 +470,8 @@ public class AccountController : Controller
         }
     }
 
+    [HttpGet]
+    [AllowAnonymous]
     private async Task<IActionResult> SingInUserAsync(LoginVM model, string? returnUrl = null)
     {
         var result = await _signInManager.PasswordSignInAsync(model.Email, model.Password, isPersistent: model.RememberMe, lockoutOnFailure: true);

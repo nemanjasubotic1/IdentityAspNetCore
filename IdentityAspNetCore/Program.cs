@@ -1,7 +1,13 @@
+using IdentityAspNetCore;
+using IdentityAspNetCore.Authorize;
 using IdentityAspNetCore.Data;
 using IdentityAspNetCore.Models;
+using IdentityAspNetCore.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Build.Experimental;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,6 +39,16 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.AccessDeniedPath = $"/Account/AccessDenied";
 });
 
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminCreate", policy => policy.RequireRole(SD.Role_Admin).RequireClaim("Create", ["True"]));
+
+    options.AddPolicy("UserOver1000", p => p.Requirements.Add(new UserWithOver1000DaysRegisteredRequirement(1000)));
+});
+
+builder.Services.AddScoped<IAuthorizationHandler, UserWithOver1000DaysRegisteredHandler>();
+
+builder.Services.AddScoped<IUserOver1000, UserOver1000>();
 
 var app = builder.Build();
 

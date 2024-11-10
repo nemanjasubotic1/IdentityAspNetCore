@@ -13,7 +13,6 @@
             <div class="row pt-3">
                 <div class="col-md-12">
                     <form class="row" method="post" asp-route-returnUrl="@ViewData["ReturnUrl"]">
-                        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
                         <div class="form-floating mb-3 col-md-12">
                             <input asp-for="Email" class="form-control" aria-required="true" />
                             <label class="ms-2 text-muted">Email</label>
