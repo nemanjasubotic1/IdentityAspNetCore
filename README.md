@@ -3,7 +3,7 @@
 ## Overview
 This sample project is an ASP.NET Core MVC application with Entity Framework Core and MS SQL database. It demonstrates the use of the Identity library for user authentication and authorization, including two-factor authentication, password reset, and role-based access control.
 
-## Usage
+## Features
 **Identity Library**
 The application uses ASP.NET Core Identity for user authentication and authorization. It includes features like user registration, login, and profile management.
 
